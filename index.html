@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>羽绒服采购数据采集</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--surface:#fff;--ink:#1a1a2e;--ink2:#555;--ink3:#999;
+  --border:#e2e8f0;--primary:#2563eb;--primary-dark:#1d4ed8;
+  --success:#16a34a;--warn:#d97706;--danger:#dc2626;
+  --tag-new:#dbeafe;--tag-new-c:#1d4ed8;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px}
+
+/* NAV */
+header{background:var(--ink);color:#fff;padding:0 2rem;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.logo-icon{width:26px;height:26px;background:#2563eb;border-radius:6px;display:grid;place-items:center;font-size:14px}
+.header-right{display:flex;align-items:center;gap:12px}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+.badge-today{background:#1e3a5f;color:#93c5fd}
+.badge-total{background:#1e3a1f;color:#86efac}
+
+/* TOOLBAR */
+.toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.8rem 2rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search-group{display:flex;gap:6px;flex:1;min-width:280px}
+.search-group input{flex:1;border:1px solid var(--border);border-radius:6px;padding:7px 11px;font-size:13px;outline:none;color:var(--ink)}
+.search-group input:focus{border-color:var(--primary);box-shadow:0 0 0 2px #dbeafe}
+select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;color:var(--ink);outline:none;background:#fff;cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:#fff;color:var(--ink);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--bg)}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+
+/* STATS ROW */
+.stats-row{display:flex;gap:10px;padding:1rem 2rem;overflow-x:auto}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.7rem 1.1rem;min-width:130px;white-space:nowrap}
+.stat-n{font-size:24px;font-weight:700;letter-spacing:-.5px;color:var(--primary)}
+.stat-l{font-size:11px;color:var(--ink2);margin-top:2px}
+
+/* PROGRESS */
+.progress-wrap{padding:0 2rem .8rem;display:none}
+.progress-bar{background:#e2e8f0;border-radius:20px;height:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--primary);border-radius:20px;transition:width .4s}
+.progress-txt{font-size:12px;color:var(--ink2);margin-top:5px;display:flex;justify-content:space-between}
+
+/* LOG */
+.log-panel{margin:0 2rem .8rem;background:#f8faff;border:1px solid #dbeafe;border-radius:8px;padding:.6rem 1rem;font-size:12px;color:#1e40af;display:none;max-height:80px;overflow-y:auto;font-family:monospace}
+
+/* TABLE */
+.table-wrap{padding:0 2rem 2rem;overflow-x:auto}
+table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+thead{background:#f8fafc}
+th{padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:13px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.new-badge{display:inline-block;font-size:9px;font-weight:700;background:var(--tag-new);color:var(--tag-new-c);padding:1px 5px;border-radius:3px;margin-left:4px;letter-spacing:.3px}
+.name-cell{font-weight:500;color:var(--ink);white-space:nowrap}
+.company-cell{color:var(--ink);font-weight:500}
+.email-cell{color:var(--primary);cursor:pointer;word-break:break-all}
+.email-cell:hover{text-decoration:underline}
+.source-cell{font-size:11px;color:var(--ink3)}
+.country-flag{margin-right:4px}
+td .tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;font-weight:500}
+.tag-brand{background:#fef3c7;color:#92400e}
+.tag-factory{background:#d1fae5;color:#065f46}
+.tag-agent{background:#ede9fe;color:#4c1d95}
+.del-btn{cursor:pointer;color:var(--danger);opacity:.5;font-size:16px;line-height:1;padding:0 2px}
+.del-btn:hover{opacity:1}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:4rem 2rem}
+.empty-icon{font-size:48px;margin-bottom:1rem}
+.empty-state h3{font-size:17px;font-weight:500;margin-bottom:.4rem}
+.empty-state p{font-size:13px;color:var(--ink2);line-height:1.7}
+
+/* MODAL */
+.modal-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.modal-mask.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:1.5rem;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.modal p{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:.6rem}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:1.2rem}
+.kw-grid{display:flex;flex-wrap:wrap;gap:6px;margin:.8rem 0}
+.kw-chip{font-size:12px;background:#f1f5f9;border:1px solid var(--border);padding:4px 10px;border-radius:20px;color:var(--ink2)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">🪶</div> 羽绒服采购专员数据采集系统</div>
+  <div class="header-right">
+    <span class="badge badge-today">今日: <b id="b-today">0</b>/50</span>
+    <span class="badge badge-total">总计: <b id="b-total">0</b> 条</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="search-group">
+    <input id="custom-kw" placeholder="附加关键词（可选，如：brand name / country）" />
+  </div>
+  <select id="sel-type">
+    <option value="all">全部类型</option>
+    <option value="brand">品牌采购</option>
+    <option value="factory">工厂采购</option>
+    <option value="agent">采购代理</option>
+  </select>
+  <select id="sel-region">
+    <option value="all">全部地区</option>
+    <option value="Europe">欧洲</option>
+    <option value="North America">北美</option>
+    <option value="Southeast Asia">东南亚</option>
+    <option value="Middle East">中东</option>
+    <option value="Japan Korea">日韩</option>
+  </select>
+  <button class="btn btn-primary" id="run-btn" onclick="runCrawl()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    开始采集 (20-50条)
+  </button>
+  <button class="btn btn-outline" onclick="exportCSV()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    导出 CSV
+  </button>
+  <button class="btn btn-outline" onclick="showHelp()">💡 使用说明</button>
+  <button class="btn btn-danger" onclick="confirmClear()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+    清空数据
+  </button>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-n" id="s-total">0</div><div class="stat-l">累计采集</div></div>
+  <div class="stat-card"><div class="stat-n" id="s-today">0</div><div class="stat-l">今日新增</div></div>
+  <div class="stat-card"><div class="stat-n" id="s-brand">0</div><div class="stat-l">品牌采购</div></div>
+  <div class="stat-card"><div class="stat-n" id="s-factory">0</div><div class="stat-l">工厂采购</div></div>
+  <div class="stat-card"><div class="stat-n" id="s-dup">0</div><div class="stat-l">本次去重</div></div>
+</div>
+
+<div class="progress-wrap" id="prog-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="progress-txt"><span id="prog-txt">准备中…</span><span id="prog-pct">0%</span></div>
+</div>
+
+<div class="log-panel" id="log-panel"></div>
+
+<div class="table-wrap">
+  <div id="empty-state" class="empty-state">
+    <div class="empty-icon">🔍</div>
+    <h3>暂无数据</h3>
+    <p>点击「开始采集」，系统将自动搜索 Google<br>提取羽绒服品牌/工厂采购专员联系信息</p>
+  </div>
+  <table id="main-table" style="display:none">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>姓名</th>
+        <th>职位</th>
+        <th>类型</th>
+        <th>公司</th>
+        <th>国家/地区</th>
+        <th>邮箱 / 联系方式</th>
+        <th>LinkedIn</th>
+        <th>来源</th>
+        <th>采集时间</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- 帮助弹窗 -->
+<div class="modal-mask" id="help-modal">
+  <div class="modal">
+    <h3>💡 使用说明</h3>
+    <p><b>系统原理：</b>调用 Claude AI + 网络搜索，自动组合 Google 搜索关键词，从公开网页中提取采购专员信息。</p>
+    <p><b>搜索关键词示例：</b></p>
+    <div class="kw-grid">
+      <span class="kw-chip">"down jacket" buyer email</span>
+      <span class="kw-chip">purchasing manager "down jacket" brand</span>
+      <span class="kw-chip">outerwear sourcing manager contact</span>
+      <span class="kw-chip">羽绒服 采购 buyer LinkedIn</span>
+      <span class="kw-chip">feather jacket factory procurement</span>
+      <span class="kw-chip">puffer jacket brand buyer email</span>
+    </div>
+    <p><b>去重逻辑：</b>以邮箱为主键，邮箱缺失则以「姓名+公司」组合去重，已存在数据自动跳过。</p>
+    <p><b>每日配额：</b>每天最多采集 50 条，防止数据重复堆积。次日自动重置计数。</p>
+    <p><b>导出：</b>点击「导出 CSV」可下载所有数据，可直接用 Excel 打开。</p>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeHelp()">知道了</button></div>
+  </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="modal-mask" id="confirm-modal">
+  <div class="modal">
+    <h3>⚠️ 确认清空</h3>
+    <p>此操作将删除所有已采集的数据，且无法恢复。确定要继续吗？</p>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="document.getElementById('confirm-modal').classList.remove('open')">取消</button>
+      <button class="btn btn-danger" onclick="clearAll()">确认清空</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage helpers ──
+const STORE_KEY='downjacket-leads-v1';
+const TODAY=new Date().toDateString();
+
+async function loadData(){
+  try{
+    const r=await window.storage.get(STORE_KEY);
+    return r?JSON.parse(r.value):{rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
+  }catch{return{rows:[],todayDate:TODAY,todayCount:0,dupCount:0}}
+}
+async function saveData(d){
+  try{await window.storage.set(STORE_KEY,JSON.stringify(d))}catch(e){console.error(e)}
+}
+
+let DB={rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
+
+async function init(){
+  DB=await loadData();
+  if(DB.todayDate!==TODAY){DB.todayDate=TODAY;DB.todayCount=0}
+  renderTable();updateStats();
+}
+
+// ── Dedup key ──
+function dedupKey(r){return(r.email&&r.email.trim()&&r.email!=='—')?r.email.toLowerCase().trim():(r.name+'|'+r.company).toLowerCase().trim()}
+
+// ── CRAWL ──
+const QUERIES=[
+  'down jacket brand purchasing manager buyer email contact',
+  'puffer jacket sourcing manager linkedin contact',
+  '"down jacket" OR "puffer jacket" buyer procurement email',
+  'outerwear feather jacket purchasing director contact',
+  'down jacket factory procurement officer email',
+  'goose down jacket importer buyer contact linkedin',
+  '"purchasing manager" "down jacket" brand email',
+  'winter jacket feather sourcing specialist contact',
+  '"down coat" buyer brand email contact',
+  'ski jacket puffer brand procurement linkedin',
+];
+
+const REGIONS={Europe:'European',North America:'North American',Southeast Asia:'Southeast Asian','Middle East':'Middle Eastern','Japan Korea':'Japanese OR Korean'};
+
+const SYSTEM=`You are a B2B lead extraction specialist. Given a web search about down jacket / puffer jacket purchasing professionals, extract contact leads from real search results.
+
+Return ONLY a JSON array, no markdown, no explanation:
+[
+  {
+    "name": "Full Name or empty string",
+    "title": "Job title",
+    "type": "brand|factory|agent",
+    "company": "Company name",
+    "country": "Country",
+    "email": "email@domain.com or —",
+    "linkedin": "linkedin.com/in/xxx or —",
+    "source": "website or source"
+  }
+]
+
+Rules:
+- Only include REAL people in purchasing/sourcing/buying roles for down jacket, puffer jacket, winter outerwear, feather jacket brands or factories
+- type: brand = retail/brand buyer; factory = OEM/ODM factory procurement; agent = sourcing agent
+- If no valid leads found, return []
+- Return 3-8 leads per search
+- Focus on non-Chinese companies/brands
+- Only include leads with at least name OR email found`;
+
+let running=false;
+
+async function runCrawl(){
+  if(running)return;
+  if(DB.todayCount>=50){log('⚠️ 今日配额已满（50条），明日自动重置');return}
+  running=true;
+  const btn=document.getElementById('run-btn');
+  btn.disabled=true;
+  btn.textContent='采集中…';
+
+  const customKw=document.getElementById('custom-kw').value.trim();
+  const selType=document.getElementById('sel-type').value;
+  const selRegion=document.getElementById('sel-region').value;
+  const regionMod=selRegion!=='all'?(REGIONS[selRegion]||''):'';
+
+  // pick 4-6 random queries
+  const shuffled=[...QUERIES].sort(()=>Math.random()-.5).slice(0,5);
+  const queries=shuffled.map(q=>[q,regionMod,customKw].filter(Boolean).join(' '));
+
+  showProgress(true);
+  let newCount=0, dupCount=0;
+  const existingKeys=new Set(DB.rows.map(dedupKey));
+
+  for(let i=0;i<queries.length;i++){
+    const q=queries[i];
+    setProgress((i/queries.length)*90, `搜索中: "${q.substring(0,50)}…"`);
+    log(`🔍 [${i+1}/${queries.length}] ${q}`);
+
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1500,
+          system:SYSTEM,
+          tools:[{type:'web_search_20250305',name:'web_search'}],
+          messages:[{role:'user',content:`Search Google for: ${q}\n\nExtract purchasing/buying professionals for down jackets, puffer jackets, feather outerwear brands and factories. Return JSON array of leads.`}]
+        })
+      });
+      const data=await res.json();
+      if(data.error){log('❌ API错误: '+data.error.message);continue}
+      const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      const clean=txt.replace(/```json|```/g,'').trim();
+      let leads=[];
+      try{leads=JSON.parse(clean)}catch{
+        const m=clean.match(/\[[\s\S]*\]/);
+        if(m)leads=JSON.parse(m[0]);
+      }
+
+      for(const lead of leads){
+        if(DB.todayCount+newCount>=50)break;
+        if(!lead.name&&!lead.email)continue;
+        // type filter
+        if(selType!=='all'&&lead.type!==selType)continue;
+        const k=dedupKey(lead);
+        if(existingKeys.has(k)){dupCount++;continue}
+        existingKeys.add(k);
+        DB.rows.unshift({...lead,id:Date.now()+Math.random(),addedDate:new Date().toLocaleString('zh-CN'),isNew:true});
+        newCount++;
+        log(`✅ 新增: ${lead.name||lead.email} @ ${lead.company}`);
+      }
+    }catch(e){log('❌ 请求失败: '+e.message)}
+
+    if(DB.todayCount+newCount>=50)break;
+    await sleep(800);
+  }
+
+  DB.todayCount+=newCount;
+  DB.dupCount=dupCount;
+  await saveData(DB);
+  setProgress(100,`完成！新增 ${newCount} 条，去重排除 ${dupCount} 条`);
+  renderTable();updateStats();
+  setTimeout(()=>{showProgress(false);btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> 再次采集';},2000);
+  running=false;
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ── UI helpers ──
+function log(msg){
+  const p=document.getElementById('log-panel');
+  p.style.display='block';
+  p.innerHTML+=msg+'<br>';
+  p.scrollTop=p.scrollHeight;
+}
+function showProgress(v){document.getElementById('prog-wrap').style.display=v?'block':'none';if(!v)document.getElementById('log-panel').style.display='none'}
+function setProgress(pct,txt){
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-txt').textContent=txt;
+  document.getElementById('prog-pct').textContent=Math.round(pct)+'%';
+}
+
+function updateStats(){
+  const today=DB.rows.filter(r=>r.addedDate&&r.addedDate.startsWith(new Date().toLocaleDateString('zh-CN').substring(0,6))).length;
+  document.getElementById('s-total').textContent=DB.rows.length;
+  document.getElementById('s-today').textContent=DB.todayCount;
+  document.getElementById('s-brand').textContent=DB.rows.filter(r=>r.type==='brand').length;
+  document.getElementById('s-factory').textContent=DB.rows.filter(r=>r.type==='factory').length;
+  document.getElementById('s-dup').textContent=DB.dupCount||0;
+  document.getElementById('b-today').textContent=DB.todayCount;
+  document.getElementById('b-total').textContent=DB.rows.length;
+}
+
+const TYPE_LABEL={brand:'品牌',factory:'工厂',agent:'代理'};
+const TYPE_TAG={brand:'tag-brand',factory:'tag-factory',agent:'tag-agent'};
+
+function renderTable(){
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty-state');
+  const tbl=document.getElementById('main-table');
+  if(!DB.rows.length){empty.style.display='block';tbl.style.display='none';return}
+  empty.style.display='none';tbl.style.display='table';
+  tbody.innerHTML=DB.rows.map((r,i)=>`
+    <tr>
+      <td style="color:var(--ink3)">${i+1}</td>
+      <td class="name-cell">${r.name||'—'}${r.isNew?'<span class="new-badge">NEW</span>':''}</td>
+      <td style="color:var(--ink2)">${r.title||'—'}</td>
+      <td><span class="tag ${TYPE_TAG[r.type]||'tag-agent'}">${TYPE_LABEL[r.type]||r.type||'—'}</span></td>
+      <td class="company-cell">${r.company||'—'}</td>
+      <td><span class="country-flag"></span>${r.country||'—'}</td>
+      <td class="email-cell" onclick="copyTxt('${r.email||''}')">${r.email||'—'}</td>
+      <td class="source-cell">${r.linkedin&&r.linkedin!=='—'?`<a href="${r.linkedin}" target="_blank" style="color:var(--primary);font-size:11px">查看</a>`:'—'}</td>
+      <td class="source-cell">${r.source||'—'}</td>
+      <td style="font-size:11px;color:var(--ink3);white-space:nowrap">${r.addedDate||'—'}</td>
+      <td><span class="del-btn" onclick="delRow('${r.id}')">×</span></td>
+    </tr>`).join('');
+}
+
+function copyTxt(t){if(!t||t==='—')return;navigator.clipboard.writeText(t).then(()=>{const tip=document.createElement('div');tip.textContent='已复制 '+t;tip.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;z-index:999';document.body.appendChild(tip);setTimeout(()=>tip.remove(),1800)})}
+
+async function delRow(id){
+  DB.rows=DB.rows.filter(r=>String(r.id)!==String(id));
+  await saveData(DB);renderTable();updateStats();
+}
+
+function exportCSV(){
+  if(!DB.rows.length)return alert('暂无数据');
+  const header=['序号','姓名','职位','类型','公司','国家','邮箱','LinkedIn','来源','采集时间'];
+  const rows=DB.rows.map((r,i)=>[i+1,r.name,r.title,TYPE_LABEL[r.type]||r.type,r.company,r.country,r.email,r.linkedin,r.source,r.addedDate].map(v=>`"${(v||'').replace(/"/g,'""')}"`));
+  const csv='\uFEFF'+[header,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`羽绒服采购专员数据_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`;
+  a.click();
+}
+
+function showHelp(){document.getElementById('help-modal').classList.add('open')}
+function closeHelp(){document.getElementById('help-modal').classList.remove('open')}
+function confirmClear(){document.getElementById('confirm-modal').classList.add('open')}
+async function clearAll(){
+  DB={rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
+  await saveData(DB);renderTable();updateStats();
+  document.getElementById('confirm-modal').classList.remove('open');
+}
+document.querySelectorAll('.modal-mask').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+init();
+</script>
+</body>
+</html>
