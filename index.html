@@ -134,7 +134,7 @@ td .tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;fo
   </button>
   <button class="btn btn-outline" onclick="showHelp()">💡 使用说明</button>
   <button class="btn btn-danger" onclick="confirmClear()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
     清空数据
   </button>
 </div>
@@ -214,18 +214,18 @@ td .tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;fo
 </div>
 
 <script>
-// ── Storage helpers ──
+// ── Storage helpers (使用 localStorage 替代不存在的 window.storage) ──
 const STORE_KEY='downjacket-leads-v1';
 const TODAY=new Date().toDateString();
 
 async function loadData(){
   try{
-    const r=await window.storage.get(STORE_KEY);
-    return r?JSON.parse(r.value):{rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
+    const stored=localStorage.getItem(STORE_KEY);
+    return stored?JSON.parse(stored):{rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
   }catch{return{rows:[],todayDate:TODAY,todayCount:0,dupCount:0}}
 }
 async function saveData(d){
-  try{await window.storage.set(STORE_KEY,JSON.stringify(d))}catch(e){console.error(e)}
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(d))}catch(e){console.error(e)}
 }
 
 let DB={rows:[],todayDate:TODAY,todayCount:0,dupCount:0};
@@ -310,7 +310,7 @@ async function runCrawl(){
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','x-api-key':process.env.ANTHROPIC_API_KEY||''},
         body:JSON.stringify({
           model:'claude-sonnet-4-20250514',
           max_tokens:1500,
@@ -352,8 +352,7 @@ async function runCrawl(){
   await saveData(DB);
   setProgress(100,`完成！新增 ${newCount} 条，去重排除 ${dupCount} 条`);
   renderTable();updateStats();
-  setTimeout(()=>{showProgress(false);btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> 再次采集';},2000);
-  running=false;
+  setTimeout(()=>{showProgress(false);btn.disabled=false;btn.textContent='开始采集 (20-50条)';running=false},2000);
 }
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
@@ -392,23 +391,42 @@ function renderTable(){
   const tbl=document.getElementById('main-table');
   if(!DB.rows.length){empty.style.display='block';tbl.style.display='none';return}
   empty.style.display='none';tbl.style.display='table';
-  tbody.innerHTML=DB.rows.map((r,i)=>`
+  tbody.innerHTML=DB.rows.map((r,i)=>{
+    const email=r.email?r.email.replace(/"/g,'&quot;'):'';
+    const id=r.id?String(r.id).replace(/"/g,'&quot;'):'';
+    return `
     <tr>
       <td style="color:var(--ink3)">${i+1}</td>
-      <td class="name-cell">${r.name||'—'}${r.isNew?'<span class="new-badge">NEW</span>':''}</td>
-      <td style="color:var(--ink2)">${r.title||'—'}</td>
+      <td class="name-cell">${escapeHtml(r.name)||'—'}${r.isNew?'<span class="new-badge">NEW</span>':''}</td>
+      <td style="color:var(--ink2)">${escapeHtml(r.title)||'—'}</td>
       <td><span class="tag ${TYPE_TAG[r.type]||'tag-agent'}">${TYPE_LABEL[r.type]||r.type||'—'}</span></td>
-      <td class="company-cell">${r.company||'—'}</td>
-      <td><span class="country-flag"></span>${r.country||'—'}</td>
-      <td class="email-cell" onclick="copyTxt('${r.email||''}')">${r.email||'—'}</td>
-      <td class="source-cell">${r.linkedin&&r.linkedin!=='—'?`<a href="${r.linkedin}" target="_blank" style="color:var(--primary);font-size:11px">查看</a>`:'—'}</td>
-      <td class="source-cell">${r.source||'—'}</td>
-      <td style="font-size:11px;color:var(--ink3);white-space:nowrap">${r.addedDate||'—'}</td>
-      <td><span class="del-btn" onclick="delRow('${r.id}')">×</span></td>
-    </tr>`).join('');
+      <td class="company-cell">${escapeHtml(r.company)||'—'}</td>
+      <td><span class="country-flag"></span>${escapeHtml(r.country)||'—'}</td>
+      <td class="email-cell" data-email="${email}" onclick="copyTxt(this.getAttribute('data-email'))">${escapeHtml(r.email)||'—'}</td>
+      <td class="source-cell">${r.linkedin&&r.linkedin!=='—'?`<a href="${escapeHtml(r.linkedin)}" target="_blank" style="color:var(--primary);font-size:11px">查看</a>`:'—'}</td>
+      <td class="source-cell">${escapeHtml(r.source)||'—'}</td>
+      <td style="font-size:11px;color:var(--ink3);white-space:nowrap">${escapeHtml(r.addedDate)||'—'}</td>
+      <td><span class="del-btn" data-id="${id}" onclick="delRow(this.getAttribute('data-id'))">×</span></td>
+    </tr>`;
+  }).join('');
 }
 
-function copyTxt(t){if(!t||t==='—')return;navigator.clipboard.writeText(t).then(()=>{const tip=document.createElement('div');tip.textContent='已复制 '+t;tip.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;z-index:999';document.body.appendChild(tip);setTimeout(()=>tip.remove(),1800)})}
+function escapeHtml(text){
+  if(!text)return '';
+  const map={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+  return String(text).replace(/[&<>"']/g,m=>map[m]);
+}
+
+function copyTxt(t){
+  if(!t||t==='—')return;
+  navigator.clipboard.writeText(t).then(()=>{
+    const tip=document.createElement('div');
+    tip.textContent='已复制 '+t;
+    tip.style.cssText='position:fixed;bottom:20px;right:20px;background:#16a34a;color:#fff;padding:10px 15px;border-radius:6px;font-size:13px;z-index:9999;';
+    document.body.appendChild(tip);
+    setTimeout(()=>tip.remove(),2000);
+  }).catch(err=>console.error('复制失败:',err));
+}
 
 async function delRow(id){
   DB.rows=DB.rows.filter(r=>String(r.id)!==String(id));
